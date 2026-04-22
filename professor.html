@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>教授端 — 模擬面試系統</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=DM+Mono:wght@400;500&family=Sora:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#f5f2ed;
+  --surface:#fff;
+  --surface2:#ede9e1;
+  --border:#ddd8ce;
+  --ink:#1a1612;
+  --ink-60:#6b5f54;
+  --ink-40:#9c9087;
+  --ink-20:#cec7bc;
+  --red:#c0331a;    --red-bg:#fff4f1;   --red-bd:#ffcbbf;
+  --amber:#c47c0c;  --amber-bg:#fffbeb; --amber-bd:#fde68a;
+  --green:#15803d;  --green-bg:#f0fdf4; --green-bd:#bbf7d0;
+  --blue:#1d4ed8;   --blue-bg:#eff6ff;  --blue-bd:#bfdbfe;
+  --yellow:#fef9c3;
+  --done-dim:0.28;
+  --r:14px;
+  --sh:0 1px 3px rgba(26,22,18,.07),0 4px 16px rgba(26,22,18,.07);
+  --sh-lg:0 8px 32px rgba(26,22,18,.14);
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html{font-size:16px;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;}
+
+/* ── TOPBAR ── */
+#topbar{
+  position:sticky;top:0;z-index:100;
+  background:var(--ink);color:#fff;
+  height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 1.1rem;gap:8px;
+}
+.tb-left{display:flex;align-items:center;gap:10px;}
+.tb-icon{font-size:1.1rem;}
+.tb-title{font-family:'Sora',sans-serif;font-weight:800;font-size:.88rem;letter-spacing:.04em;}
+.tb-right{display:flex;align-items:center;gap:8px;}
+#tb-clock{font-family:'DM Mono',monospace;font-size:.95rem;color:rgba(255,255,255,.75);}
+.sync-wrap{display:flex;align-items:center;gap:5px;}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:#4ade80;flex-shrink:0;transition:background .3s;}
+.sync-dot.syncing{background:#facc15;animation:pulse .8s infinite;}
+.sync-dot.error{background:#f87171;}
+.sync-txt{font-size:.68rem;color:rgba(255,255,255,.45);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+/* ── ROOM BAR ── */
+#room-bar{
+  background:var(--surface);border-bottom:1.5px solid var(--border);
+  padding:.55rem .9rem;display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+}
+.room-btn{
+  background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;
+  padding:7px 16px;font-family:inherit;font-size:.83rem;font-weight:700;
+  color:var(--ink-60);cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .2s;
+}
+.room-btn.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+
+/* ── PHASE BANNER ── */
+#phase-banner{
+  border-radius:var(--r);padding:1rem 1.2rem;
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:10px;border:2px solid;transition:all .5s;
+}
+#phase-banner.interview{background:var(--red-bg);border-color:var(--red-bd);}
+#phase-banner.feedback{background:var(--amber-bg);border-color:var(--amber-bd);}
+#phase-banner.break{background:var(--green-bg);border-color:var(--green-bd);}
+#phase-banner.idle{background:var(--surface2);border-color:var(--border);}
+.pb-lbl{font-size:.67rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;margin-bottom:3px;}
+.pb-ttl{font-size:.98rem;font-weight:700;}
+.interview .pb-lbl,.interview .pb-ttl{color:var(--red);}
+.feedback  .pb-lbl,.feedback  .pb-ttl{color:var(--amber);}
+.break     .pb-lbl,.break     .pb-ttl{color:var(--green);}
+.idle      .pb-lbl,.idle      .pb-ttl{color:var(--ink-60);}
+.pb-timer{text-align:right;}
+.pb-count{font-family:'DM Mono',monospace;font-size:2.6rem;font-weight:500;line-height:1;}
+.interview .pb-count{color:var(--red);}
+.feedback  .pb-count{color:var(--amber);}
+.break     .pb-count{color:var(--green);}
+.idle      .pb-count{color:var(--ink-20);}
+.pb-bars{display:flex;gap:5px;margin-top:9px;}
+.pb-bar{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden;}
+.pb-bar-fill{height:100%;border-radius:3px;transition:width 1s linear;}
+.fill-i{background:var(--red);}
+.fill-f{background:var(--amber);}
+
+/* ── SLOT CARDS ── */
+.slot-card{
+  background:var(--surface);border:1.5px solid var(--border);
+  border-radius:var(--r);box-shadow:var(--sh);margin-bottom:.85rem;
+  overflow:hidden;transition:all .35s;
+}
+.slot-card.is-active{
+  border-color:var(--blue) !important;
+  box-shadow:0 0 0 3px rgba(29,78,216,.12),var(--sh) !important;
+}
+.slot-card.is-done{opacity:var(--done-dim);filter:grayscale(.5);}
+.slot-card.is-checkedin{border-color:var(--green);}
+
+/* Card header */
+.sc-head{
+  padding:.75rem 1rem;display:flex;align-items:center;gap:10px;
+  border-bottom:1px solid var(--border);
+  background:var(--surface2);position:relative;
+}
+.sc-head.active-head{background:var(--yellow);border-color:rgba(29,78,216,.2);}
+.sc-num{font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:500;color:var(--blue);}
+.sc-time{font-family:'DM Mono',monospace;font-size:.8rem;color:var(--ink-40);}
+.sc-badge{margin-left:auto;}
+.active-pill{
+  background:var(--blue);color:#fff;font-size:.62rem;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;padding:3px 10px;border-radius:20px;
+  animation:blink 1.6s infinite;
+}
+
+/* Judges row */
+.sc-judges{
+  padding:.55rem 1rem;font-size:.77rem;color:var(--ink-60);
+  border-bottom:1px solid var(--border);background:var(--surface);
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+}
+.judge-chip{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:5px;padding:2px 9px;font-size:.74rem;color:var(--ink-60);font-weight:500;
+}
+
+/* Timer bar (inside active card) */
+.sc-timer{
+  padding:.7rem 1rem;background:var(--yellow);border-bottom:1px solid rgba(29,78,216,.1);
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+}
+.sc-timer-phase{font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;}
+.sc-timer-count{font-family:'DM Mono',monospace;font-size:1.7rem;font-weight:500;}
+.sc-timer.interview-phase .sc-timer-phase,.sc-timer.interview-phase .sc-timer-count{color:var(--red);}
+.sc-timer.feedback-phase  .sc-timer-phase,.sc-timer.feedback-phase  .sc-timer-count{color:var(--amber);}
+.sc-timer.overtime-phase  .sc-timer-phase,.sc-timer.overtime-phase  .sc-timer-count{color:var(--red);animation:blink 1s infinite;}
+.timer-bars{display:flex;gap:4px;flex:1;}
+.timer-bar-seg{flex:1;height:4px;background:rgba(0,0,0,.1);border-radius:2px;overflow:hidden;}
+.timer-bar-seg-fill{height:100%;border-radius:2px;transition:width 1s linear;}
+
+/* Students list */
+.sc-students{padding:.5rem .8rem;}
+.student-row{
+  display:grid;grid-template-columns:1fr auto auto;
+  align-items:center;gap:8px;
+  padding:.6rem .4rem;border-bottom:1px solid var(--surface2);
+}
+.student-row:last-child{border-bottom:none;}
+.stu-name{font-size:.93rem;font-weight:600;color:var(--ink);}
+.stu-dept{
+  background:var(--blue-bg);border:1px solid var(--blue-bd);
+  color:var(--blue);border-radius:5px;padding:2px 9px;
+  font-size:.72rem;font-weight:600;white-space:nowrap;
+}
+.stu-link{
+  display:inline-flex;align-items:center;gap:3px;
+  color:var(--blue);font-size:.75rem;font-weight:600;
+  text-decoration:none;border:1px solid var(--blue-bd);
+  border-radius:5px;padding:3px 9px;background:var(--blue-bg);
+  white-space:nowrap;transition:all .18s;
+}
+.stu-link:hover{background:var(--blue);color:#fff;}
+.stu-no-link{width:60px;}  /* spacer */
+
+/* Upcoming section header */
+.section-lbl{
+  font-size:.67rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink-40);padding:.9rem 1rem .4rem;
+}
+
+/* Badges */
+.badge{display:inline-block;padding:2px 9px;border-radius:4px;font-size:.67rem;font-weight:700;letter-spacing:.05em;white-space:nowrap;}
+.b-waiting{background:var(--surface2);color:var(--ink-60);}
+.b-checkedin{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
+.b-active{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bd);}
+.b-done{background:var(--surface2);color:var(--ink-40);}
+
+/* Animations */
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+
+/* Upcoming compact rows */
+.up-row{
+  padding:.75rem 1rem;border-bottom:1px solid var(--surface2);
+  display:flex;flex-direction:column;gap:6px;
+}
+.up-row:last-child{border-bottom:none;}
+.up-left{display:flex;align-items:center;gap:8px;margin-bottom:2px;}
+.up-num{font-family:'DM Mono',monospace;font-size:.9rem;font-weight:500;color:var(--blue);}
+.up-time{font-family:'DM Mono',monospace;font-size:.75rem;color:var(--ink-40);}
+.up-students{display:flex;flex-direction:column;gap:4px;padding-left:2px;}
+.up-stu{display:flex;align-items:center;gap:7px;}
+.up-name{font-size:.88rem;font-weight:600;color:var(--ink);}
+.up-dept{background:var(--blue-bg);border:1px solid var(--blue-bd);color:var(--blue);border-radius:4px;padding:1px 7px;font-size:.7rem;font-weight:600;}
+
+/* Misc */
+.page{padding:1.1rem;max-width:720px;margin:0 auto;}
+.empty{text-align:center;padding:2.5rem;color:var(--ink-40);font-size:.88rem;}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 15px;border-radius:8px;border:none;font-family:inherit;font-size:.82rem;font-weight:700;cursor:pointer;transition:all .18s;white-space:nowrap;}
+.btn-ghost{background:var(--surface);color:var(--ink-60);border:1.5px solid var(--border);}
+.btn-ghost:hover{border-color:var(--ink);color:var(--ink);}
+.btn-sm{padding:4px 11px;font-size:.74rem;border-radius:6px;}
+
+/* Setup overlay */
+#setup{position:fixed;inset:0;background:var(--bg);z-index:200;display:flex;align-items:center;justify-content:center;padding:1rem;}
+.setup-box{background:#fff;border-radius:18px;padding:2rem;max-width:460px;width:100%;box-shadow:var(--sh-lg);}
+.setup-ttl{font-family:'Sora',sans-serif;font-weight:800;font-size:1.35rem;margin-bottom:.4rem;}
+.setup-sub{font-size:.83rem;color:var(--ink-60);margin-bottom:1.3rem;line-height:1.65;}
+.fi{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-family:inherit;font-size:.85rem;color:var(--ink);outline:none;transition:border-color .2s;-webkit-appearance:none;}
+.fi:focus{border-color:var(--blue);background:#fff;}
+.form-lbl{display:block;font-size:.69rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-60);margin:10px 0 4px;}
+.form-lbl:first-child{margin-top:0;}
+.btn-setup{width:100%;padding:12px;border-radius:10px;border:none;font-family:inherit;font-size:.95rem;font-weight:700;cursor:pointer;margin-top:4px;}
+.btn-primary{background:var(--ink);color:#fff;} .btn-primary:hover{background:#2c241e;}
+.btn-sec{background:var(--surface2);color:var(--ink-60);border:1.5px solid var(--border);margin-top:6px!important;} .btn-sec:hover{border-color:var(--ink);color:var(--ink);}
+#s-err{color:var(--red);font-size:.77rem;margin-top:.5rem;display:none;}
+
+/* Toast */
+#toast{position:fixed;bottom:1.4rem;left:50%;transform:translateX(-50%) translateY(70px);background:var(--ink);color:#fff;padding:9px 20px;border-radius:10px;font-size:.83rem;font-weight:600;z-index:999;transition:transform .3s;pointer-events:none;white-space:nowrap;}
+#toast.show{transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<div id="setup">
+  <div class="setup-box">
+    <div class="setup-ttl">🎓 教授端</div>
+    <p class="setup-sub">請輸入 Apps Script 網址，系統將每 15 秒自動同步資料。</p>
+    <div class="form-lbl">Apps Script 網址</div>
+    <input class="fi" id="s-url" placeholder="https://script.google.com/macros/s/…/exec" style="font-size:.76rem">
+    <button class="btn-setup btn-primary" onclick="startSystem()" style="margin-top:14px">連接並開始</button>
+    <button class="btn-setup btn-sec" onclick="useDemo()">使用示範模式</button>
+    <div id="s-err"></div>
+  </div>
+</div>
+
+<nav id="topbar">
+  <div class="tb-left">
+    <span class="tb-icon">🎓</span>
+    <span class="tb-title">教授端</span>
+  </div>
+  <div class="tb-right">
+    <div class="sync-wrap">
+      <div class="sync-dot" id="sync-dot"></div>
+      <span class="sync-txt" id="sync-txt">--</span>
+    </div>
+    <span id="tb-clock">--:--</span>
+  </div>
+</nav>
+
+<div id="room-bar"></div>
+
+<div class="page">
+  <div id="phase-banner" class="idle" style="margin-bottom:1.1rem">
+    <div>
+      <div class="pb-lbl" id="pb-lbl">目前階段</div>
+      <div class="pb-ttl" id="pb-ttl">系統啟動中</div>
+      <div class="pb-bars" id="pb-bars"></div>
+    </div>
+    <div class="pb-timer">
+      <div class="pb-count" id="pb-count">--:--</div>
+    </div>
+  </div>
+
+  <div id="content"></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// inline shared logic (since single-file, no external import)
+window.IV = {};
+IV.SCHED_TIMES=['09:10','10:10','11:10','13:10','14:10','15:10'];
+IV.SLOT_MINS=50; IV.INTERVIEW_MINS=25; IV.FEEDBACK_MINS=25; IV.SYNC_MS=15000;
+IV.ROOM_CODES=['R1','R2','R3','R4'];
+IV.ROOM_NAMES={R1:'第一考場',R2:'第二考場',R3:'第三考場',R4:'第四考場'};
+IV.GAS_URL=''; IV.DATA={}; IV._syncT=null;
+
+IV.save=()=>{try{localStorage.setItem('iv6_url',IV.GAS_URL);const st={};Object.values(IV.DATA).forEach(r=>r.slots.forEach(s=>s.students.forEach(stu=>{if(stu.status!=='waiting')st[stu.stuId]=stu.status;})));localStorage.setItem('iv6_st',JSON.stringify(st));}catch(e){}};
+IV.loadLocal=()=>{try{IV.GAS_URL=localStorage.getItem('iv6_url')||'';}catch(e){}};
+IV.applyLocal=()=>{try{const raw=localStorage.getItem('iv6_st');if(!raw)return;const st=JSON.parse(raw);Object.values(IV.DATA).forEach(r=>r.slots.forEach(s=>s.students.forEach(stu=>{if(st[stu.stuId])stu.status=st[stu.stuId];})));}catch(e){}};
+IV.p2=n=>String(n).padStart(2,'0');
+IV.toSecs=t=>{const[h,m]=t.split(':').map(Number);return(h*60+m)*60;};
+IV.nowSecs=()=>{const n=new Date();return(n.getHours()*60+n.getMinutes())*60+n.getSeconds();};
+IV.secsToMS=s=>{const neg=s<0;s=Math.abs(Math.round(s));return(neg?'+ ':'')+IV.p2(Math.floor(s/60))+':'+IV.p2(s%60);};
+IV.ensureRoom=c=>{if(!IV.DATA[c])IV.DATA[c]={code:c,name:IV.ROOM_NAMES[c]||c,slots:[]};};
+
+IV.badgeHtml=s=>{const m={waiting:['b-waiting','等待中'],checkedin:['b-checkedin','已在外等候'],active:['b-active','面試中'],done:['b-done','已完成']};const[c,t]=m[s]||m.waiting;return`<span class="badge ${c}">${t}</span>`;};
+
+IV.computePhase=()=>{
+  const ns=IV.nowSecs();
+  for(let i=0;i<IV.SCHED_TIMES.length;i++){
+    const start=IV.toSecs(IV.SCHED_TIMES[i]),iEnd=start+IV.INTERVIEW_MINS*60,end=start+IV.SLOT_MINS*60;
+    if(ns>=start&&ns<iEnd){const rem=iEnd-ns,el=ns-start;return{phase:'interview',rem,el,iP:Math.min(100,el/(IV.INTERVIEW_MINS*60)*100),fP:0,slotT:IV.SCHED_TIMES[i]};}
+    if(ns>=iEnd&&ns<end){const rem=end-ns,el=ns-start,fEl=ns-iEnd;return{phase:'feedback',rem,el,iP:100,fP:Math.min(100,fEl/(IV.FEEDBACK_MINS*60)*100),slotT:IV.SCHED_TIMES[i]};}
+  }
+  const ni=IV.SCHED_TIMES.findIndex(t=>IV.toSecs(t)>ns);
+  if(ni===-1)return{phase:'idle',rem:0,iP:0,fP:0};
+  return{phase:'break',rem:IV.toSecs(IV.SCHED_TIMES[ni])-ns,nextT:IV.SCHED_TIMES[ni],iP:0,fP:0};
+};
+
+IV.autoAdvance=()=>{
+  const ns=IV.nowSecs();
+  Object.values(IV.DATA).forEach(room=>room.slots.forEach(s=>{
+    const start=IV.toSecs(s.time),end=start+IV.SLOT_MINS*60;
+    s.students.forEach(stu=>{
+      if(ns>=start&&ns<end&&(stu.status==='waiting'||stu.status==='checkedin')){stu.status='active';IV.save();}
+      if(ns>=end&&stu.status==='active'){stu.status='done';IV.save();}
+    });
+  }));
+};
+
+IV.setSyncState=(state,txt)=>{
+  const d=document.getElementById('sync-dot');
+  d.className='sync-dot'+(state==='syncing'?' syncing':state==='error'?' error':'');
+  document.getElementById('sync-txt').textContent=txt||'--';
+};
+
+IV.slotStatus=s=>{
+  const stus=s.students;
+  if(stus.every(x=>x.status==='done'))return'done';
+  if(stus.some(x=>x.status==='active'))return'active';
+  if(stus.some(x=>x.status==='checkedin'))return'checkedin';
+  return'waiting';
+};
+
+// 把任何時間格式清理成 "HH:MM"
+IV.cleanTime=t=>{
+  if(!t)return'';
+  // Already "HH:MM"
+  if(/^\d{2}:\d{2}$/.test(String(t).trim()))return String(t).trim();
+  // Date string from Sheets e.g. "Sat Dec 30 1899 09:10:00 GMT+0800 (...)"
+  const d=new Date(t);
+  if(!isNaN(d))return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  return String(t).trim();
+};
+
+IV.fetchAll=async(cb)=>{
+  if(!IV.GAS_URL)return;
+  IV.setSyncState('syncing','同步中…');
+  try{
+    const res=await fetch(IV.GAS_URL+'?action=data&t='+Date.now());
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const json=await res.json();
+    if(!json.ok)throw new Error(json.error);
+    Object.keys(json.data).forEach(code=>{
+      IV.ensureRoom(code);
+      IV.DATA[code].slots=json.data[code].map(s=>{
+        const localSlot=IV.DATA[code].slots.find(x=>x.id===s.id);
+        return{
+          ...s,
+          time: IV.cleanTime(s.time),
+          students:s.students.map(stu=>{
+            const localStu=localSlot?.students?.find(x=>x.stuId===stu.stuId);
+            return{...stu,status:(stu.status!=='waiting')?stu.status:(localStu?.status||'waiting')};
+          })
+        };
+      });
+    });
+    IV.applyLocal();
+    IV.setSyncState('ok',new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',second:'2-digit'}));
+    cb&&cb();
+  }catch(e){IV.setSyncState('error',e.message);}
+};
+
+IV.startSync=cb=>{clearInterval(IV._syncT);IV.fetchAll(cb);IV._syncT=setInterval(()=>IV.fetchAll(cb),IV.SYNC_MS);};
+
+// ── UI STATE ──
+let UI = { room: null };
+function fixUI(){ const codes=Object.keys(IV.DATA); if(!codes.length)return; if(!UI.room||!IV.DATA[UI.room])UI.room=codes[0]; }
+
+// ── SETUP ──
+function startSystem(){
+  const url=document.getElementById('s-url').value.trim();
+  if(!url||!url.startsWith('https://')){showErr('請輸入有效的 Apps Script 網址');return;}
+  IV.GAS_URL=url; IV.save();
+  document.getElementById('setup').style.display='none';
+  IV.startSync(()=>{fixUI();renderAll();});
+  toast('連接中…');
+}
+function useDemo(){
+  document.getElementById('setup').style.display='none';
+  loadDemo(); fixUI(); renderAll();
+}
+function showErr(m){const e=document.getElementById('s-err');e.textContent=m;e.style.display='block';}
+
+// ── MAIN LOOP ──
+function mainLoop(){
+  const n=new Date();
+  document.getElementById('tb-clock').textContent=IV.p2(n.getHours())+':'+IV.p2(n.getMinutes())+':'+IV.p2(n.getSeconds());
+  IV.autoAdvance();
+  const ph=IV.computePhase();
+  renderBanner(ph);
+  renderContent(ph);
+}
+
+// ── PHASE BANNER ──
+function renderBanner(ph){
+  const el=document.getElementById('phase-banner');
+  const cls=ph.phase==='interview'?'interview':ph.phase==='feedback'?'feedback':ph.phase==='break'?'break':'idle';
+  el.className=cls;
+  document.getElementById('pb-lbl').textContent=ph.phase==='interview'?'面試進行中':ph.phase==='feedback'?'委員回饋':ph.phase==='break'?'休息時間':'待機';
+  document.getElementById('pb-ttl').textContent=
+    ph.phase==='interview'?`▶ ${ph.slotT} 時段 — 面試階段`:
+    ph.phase==='feedback'?`💬 ${ph.slotT} 時段 — 回饋階段`:
+    ph.phase==='break'?`☕ 下一場 ${ph.nextT} 開始`:'今日面試尚未開始或已結束';
+  document.getElementById('pb-count').textContent=ph.phase!=='idle'?IV.secsToMS(ph.rem):'--:--';
+  document.getElementById('pb-bars').innerHTML=
+    (ph.phase==='interview'||ph.phase==='feedback')?
+    `<div class="pb-bar"><div class="pb-bar-fill fill-i" style="width:${ph.iP}%"></div></div><div class="pb-bar"><div class="pb-bar-fill fill-f" style="width:${ph.fP||0}%"></div></div>`:'';
+}
+
+// ── CONTENT ──
+function renderRoomBar(){
+  document.getElementById('room-bar').innerHTML=Object.values(IV.DATA).map(r=>
+    `<button class="room-btn ${UI.room===r.code?'active':''}" onclick="selRoom('${r.code}')">${r.name}</button>`
+  ).join('');
+}
+
+function selRoom(c){UI.room=c;renderAll();}
+
+function buildTimerBlock(s, ns){
+  const start=IV.toSecs(s.time),el2=ns-start,iEnd=IV.INTERVIEW_MINS*60,end=IV.SLOT_MINS*60;
+  const inI=el2<iEnd,inF=el2>=iEnd&&el2<end,ot=el2>=end;
+  let tval,tcls,plbl;
+  if(inI){tval=IV.secsToMS(iEnd-el2);tcls='interview-phase';plbl='面試進行中';}
+  else if(inF){tval=IV.secsToMS(end-el2);tcls='feedback-phase';plbl='委員回饋中';}
+  else{tval=IV.secsToMS(el2-end);tcls='overtime-phase';plbl='⚠ 超時';}
+  const iP=inI?Math.min(100,el2/iEnd*100):100;
+  const fP=inF?Math.min(100,(el2-iEnd)/(IV.FEEDBACK_MINS*60)*100):(ot?100:0);
+  return {tval,tcls,plbl,iP,fP};
+}
+
+function renderContent(ph){
+  const room=IV.DATA[UI.room];
+  const el=document.getElementById('content');
+  if(!room){el.innerHTML='<div class="empty">請選擇考場</div>';return;}
+  if(!ph)ph=IV.computePhase();
+  const ns=IV.nowSecs();
+
+  // Split slots into current / upcoming / done
+  const current  = room.slots.find(s=>IV.slotStatus(s)==='active');
+  const checkedin= !current && room.slots.find(s=>IV.slotStatus(s)==='checkedin');
+  const hero     = current || checkedin;
+  const upcoming = room.slots.filter(s=>s!==hero && IV.slotStatus(s)!=='done');
+  const allDone  = room.slots.length>0 && room.slots.every(s=>IV.slotStatus(s)==='done');
+
+  let heroHtml='';
+
+  if(hero){
+    const isActive=IV.slotStatus(hero)==='active';
+
+    // Timer block (only when active)
+    let timerHtml='';
+    if(isActive){
+      const {tval,tcls,plbl,iP,fP}=buildTimerBlock(hero,ns);
+      timerHtml=`<div class="sc-timer ${tcls}">
+        <div>
+          <div class="sc-timer-phase">${plbl}</div>
+          <div class="sc-timer-count">${tval}</div>
+        </div>
+        <div class="timer-bars">
+          <div class="timer-bar-seg"><div class="timer-bar-seg-fill fill-i" style="width:${iP}%"></div></div>
+          <div class="timer-bar-seg"><div class="timer-bar-seg-fill fill-f" style="width:${fP}%"></div></div>
+        </div>
+      </div>`;
+    }
+
+    const judgesHtml=hero.judges.length
+      ?`<div class="sc-judges">${hero.judges.map(j=>`<span class="judge-chip">👤 ${j}</span>`).join('')}</div>`:'';
+
+    // Per-student status display
+    const studentsHtml=hero.students.map(stu=>{
+      const sc=stu.status==='checkedin'?'color:var(--green);font-weight:700':
+               stu.status==='active'?'color:var(--blue);font-weight:700':
+               stu.status==='done'?'color:var(--ink-40)':'color:var(--ink-40)';
+      const st=stu.status==='checkedin'?'✓ 已在外等候':stu.status==='active'?'面試中':stu.status==='done'?'已完成':'尚未報到';
+      return`<div class="student-row">
+        <span class="stu-name">${stu.name}</span>
+        <span class="stu-dept">${stu.dept||'—'}</span>
+        <span style="font-size:.75rem;${sc}">${st}</span>
+        ${stu.link?`<a class="stu-link" href="${stu.link}" target="_blank">資料 ↗</a>`:`<span class="stu-no-link"></span>`}
+      </div>`;
+    }).join('');
+
+    heroHtml=`<div class="slot-card ${isActive?'is-active':'is-checkedin'}" style="margin-bottom:1.1rem">
+      <div class="sc-head ${isActive?'active-head':''}">
+        <span class="sc-num">${hero.group}</span>
+        <span class="sc-time">${hero.time}</span>
+        ${isActive?`<span class="active-pill">● 正在面試中</span>`:`<span class="sc-badge">${badgeHtml(IV.slotStatus(hero))}</span>`}
+      </div>
+      ${judgesHtml}
+      ${timerHtml}
+      <div class="sc-students">${studentsHtml}</div>
+    </div>`;
+
+  } else if(allDone){
+    heroHtml=`<div class="empty" style="padding:2rem;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);margin-bottom:1.1rem">✅ 本考場今日面試已全部完成</div>`;
+  } else {
+    const next=room.slots.find(s=>IV.slotStatus(s)!=='done');
+    heroHtml=`<div class="empty" style="padding:2rem;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);margin-bottom:1.1rem">⏳ ${next?`等待 ${next.group}（${next.time}）開始`:'尚無排程'}</div>`;
+  }
+
+  function badgeHtml(s){const m={waiting:['b-waiting','等待中'],checkedin:['b-checkedin','已在外等候'],active:['b-active','面試中'],done:['b-done','已完成']};const[c,t]=m[s]||m.waiting;return`<span class="badge ${c}">${t}</span>`;}
+
+  // Upcoming: compact rows
+  let upcomingHtml='';
+  if(upcoming.length){
+    const rows=upcoming.map(s=>{
+      const ss=IV.slotStatus(s);
+      const stuNames=s.students.map(stu=>{
+        const dot=stu.status==='checkedin'?'<span style="color:var(--green);font-size:.7rem">✓ </span>':
+                  stu.status==='waiting'?'<span style="color:var(--ink-20);font-size:.7rem">○ </span>':'';
+        return`<div class="up-stu">${dot}<span class="up-name">${stu.name}</span><span class="up-dept">${stu.dept||'—'}</span></div>`;
+      }).join('');
+      return `<div class="up-row">
+        <div class="up-left">
+          <span class="up-num">${s.group}</span>
+          <span class="up-time">${s.time}</span>
+          ${badgeHtml(ss)}
+        </div>
+        <div class="up-students">${stuNames}</div>
+      </div>`;
+    }).join('');
+    upcomingHtml=`<div style="font-size:.67rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-40);margin-bottom:.5rem">接下來的時段</div>
+    <div class="card" style="overflow:hidden">${rows}</div>`;
+  }
+
+  el.innerHTML = heroHtml + upcomingHtml || '<div class="empty">本考場尚無排程</div>';
+}
+
+function renderAll(){renderRoomBar();renderContent();}
+
+// ── DEMO ──
+function loadDemo(){
+  IV.ROOM_CODES.forEach(IV.ensureRoom);
+  const mk=(id,time,group,students,judges,status)=>({id,time,group,students,judges,status});
+  IV.DATA.R1.slots=[
+    mk('R1_A01','09:10','A01',[{name:'林美華',dept:'資管系',link:'https://example.com'},{name:'張俊傑',dept:'電機系',link:'https://example.com'},{name:'陳雅婷',dept:'法律系',link:''}],['王建志教授','李美玲委員'],'done'),
+    mk('R1_A02','10:10','A02',[{name:'黃志遠',dept:'中文系',link:''},{name:'劉淑芬',dept:'歷史系',link:''},{name:'蔡明宏',dept:'外文系',link:'https://example.com'}],['王建志教授','陳文豪博士'],'active'),
+    mk('R1_A03','11:10','A03',[{name:'邱詩涵',dept:'企管系',link:''},{name:'許文豪',dept:'財金系',link:''}],['吳建志主任','李美玲委員'],'checkedin'),
+    mk('R1_A04','13:10','A04',[{name:'鄭佳玲',dept:'社工系',link:''},{name:'方志明',dept:'心理系',link:''},{name:'吳雅慧',dept:'教育系',link:''}],['王建志教授','李美玲委員'],'waiting'),
+    mk('R1_A05','14:10','A05',[{name:'蔣明宏',dept:'電機系',link:''},{name:'羅詩涵',dept:'資工系',link:''}],['王建志教授','陳文豪博士'],'waiting'),
+    mk('R1_A06','15:10','A06',[{name:'沈文豪',dept:'機械系',link:''},{name:'葉佳玲',dept:'化工系',link:''}],['吳建志主任','李美玲委員'],'waiting'),
+  ];
+  IV.DATA.R2.slots=[
+    mk('R2_B01','09:10','B01',[{name:'許嘉怡',dept:'護理系',link:''},{name:'陳建國',dept:'醫技系',link:''}],['方文山教授','葉美慧委員'],'done'),
+    mk('R2_B02','10:10','B02',[{name:'周志偉',dept:'藥學系',link:'https://example.com'},{name:'楊雅惠',dept:'生技系',link:''},{name:'謝明達',dept:'食品系',link:''}],['方文山教授','葉美慧委員'],'active'),
+    mk('R2_B03','11:10','B03',[{name:'林俊宏',dept:'物理系',link:''},{name:'邱美玲',dept:'化學系',link:''}],['鄭國華博士','方素玲委員'],'waiting'),
+    mk('R2_B04','13:10','B04',[{name:'吳志強',dept:'數學系',link:''},{name:'陳淑芬',dept:'統計系',link:''}],['方文山教授','葉美慧委員'],'waiting'),
+  ];
+  IV.DATA.R3.slots=[
+    mk('R3_C01','09:10','C01',[{name:'趙明輝',dept:'中文系',link:''},{name:'錢美麗',dept:'歷史系',link:''}],['孫志明教授'],'done'),
+    mk('R3_C02','10:10','C02',[{name:'孫建平',dept:'外文系',link:''},{name:'李嘉欣',dept:'日文系',link:''}],['孫志明教授','吳秀芳委員'],'active'),
+  ];
+  IV.DATA.R4.slots=[];
+}
+
+// ── TOAST ──
+function toast(m){const e=document.getElementById('toast');e.textContent=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),2500);}
+
+// ── BOOT ──
+IV.loadLocal();
+IV.ROOM_CODES.forEach(IV.ensureRoom);
+if(IV.GAS_URL){
+  document.getElementById('s-url').value=IV.GAS_URL;
+  document.getElementById('setup').style.display='none';
+  IV.startSync(()=>{fixUI();renderAll();});
+}
+setInterval(mainLoop,1000);
+mainLoop();
+</script>
+</body>
+</html>
