@@ -144,7 +144,7 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink)
 /* Students list */
 .sc-students{padding:.5rem .8rem;}
 .student-row{
-  display:grid;grid-template-columns:1fr auto auto;
+  display:grid;grid-template-columns:1fr auto auto auto;
   align-items:center;gap:8px;
   padding:.6rem .4rem;border-bottom:1px solid var(--surface2);
 }
@@ -515,7 +515,8 @@ function renderContent(ph){
       const stuNames=s.students.map(stu=>{
         const dot=stu.status==='checkedin'?'<span style="color:var(--green);font-size:.7rem">✓ </span>':
                   stu.status==='waiting'?'<span style="color:var(--ink-20);font-size:.7rem">○ </span>':'';
-        return`<div class="up-stu">${dot}<span class="up-name">${stu.name}</span><span class="up-dept">${stu.dept||'—'}</span></div>`;
+        return`<div class="up-stu">${dot}<span class="up-name">${stu.name}</span><span class="up-dept">${stu.dept||'—'}</span>${stu.link?`<a href="${stu.link}" target="_blank" style="font-size:.72rem;color:var(--blue);font-weight:600;text-decoration:none;border:1px solid var(--blue-bd);border-radius:4px;padding:1px 7px;background:var(--blue-bg);white-space:nowrap">資料 ↗</a>`:''}
+</div>`;
       }).join('');
       return `<div class="up-row">
         <div class="up-left">
