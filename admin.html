@@ -27,7 +27,7 @@
   --sh-lg:0 8px 32px rgba(24,22,15,.14);
 }
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
-html{font-size:16px;-webkit-tap-highlight-color:transparent;}
+html{font-size:18px;-webkit-tap-highlight-color:transparent;}
 body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;}
 
 /* ── TOPBAR ── */
@@ -341,29 +341,48 @@ function renderSchedule(){
     </tr>`);
     // Per-student rows
     s.students.forEach(stu=>{
-      const rowBg=stu.status==='checkedin'?'background:var(--green-bg)':stu.status==='active'?'background:var(--blue-bg)':stu.status==='done'?'opacity:.4':'';
+      const rowBg=stu.status==='checkedin'?'background:var(--green-bg)':stu.status==='active'?'background:var(--blue-bg)':stu.status==='absent'?'background:var(--red-bg)':stu.status==='done'?'opacity:.4':'';
       rows.push(`<tr style="${rowBg}">
         <td></td>
         <td style="padding-left:1.5rem">
-          <span style="font-weight:600">${stu.name}</span>
+          <span style="font-weight:600;font-size:.9rem">${stu.name}</span>
         </td>
         <td>
           <span class="stu-item-dept">${stu.dept||'—'}</span>
-          ${stu.link?`<a href="${stu.link}" target="_blank" style="font-size:.7rem;color:var(--blue);text-decoration:none;border:1px solid var(--blue-bd);border-radius:3px;padding:1px 5px;background:var(--blue-bg);margin-left:5px">資料↗</a>`:''}
+          ${stu.link?`<a href="${stu.link}" target="_blank" style="font-size:.75rem;color:var(--blue);text-decoration:none;border:1px solid var(--blue-bd);border-radius:3px;padding:1px 5px;background:var(--blue-bg);margin-left:5px">資料↗</a>`:''}
         </td>
         <td>${IV.badgeHtml(stu.status)}</td>
         <td>
-          <select class="status-sel" onchange="changeStuStatus('${stu.stuId}','${UI.room}',this.value)">
-            <option value="waiting"   ${stu.status==='waiting'   ?'selected':''}>等待中</option>
-            <option value="checkedin" ${stu.status==='checkedin' ?'selected':''}>已在外等候</option>
-            <option value="active"    ${stu.status==='active'    ?'selected':''}>面試中</option>
-            <option value="done"      ${stu.status==='done'      ?'selected':''}>已完成</option>
-          </select>
+          <div style="display:flex;gap:5px;align-items:center">
+            <select class="status-sel" id="sel-${stu.stuId.replace(/[^a-z0-9]/gi,'_')}">
+              <option value="waiting"   ${stu.status==='waiting'   ?'selected':''}>等待中</option>
+              <option value="checkedin" ${stu.status==='checkedin' ?'selected':''}>已在外等候</option>
+              <option value="active"    ${stu.status==='active'    ?'selected':''}>面試中</option>
+              <option value="absent"    ${stu.status==='absent'    ?'selected':''}>缺席</option>
+              <option value="done"      ${stu.status==='done'      ?'selected':''}>已完成</option>
+            </select>
+            <button class="btn btn-blue btn-sm" onclick="applyStatus('${stu.stuId}','${UI.room}')">套用</button>
+          </div>
         </td>
       </tr>`);
     });
   });
   tbody.innerHTML=rows.join('');
+}
+
+async function applyStatus(stuId,roomCode){
+  const selId='sel-'+stuId.replace(/[^a-z0-9]/gi,'_');
+  const sel=document.getElementById(selId);
+  if(!sel)return;
+  const newStatus=sel.value;
+  const room=IV.DATA[roomCode];if(!room)return;
+  let targetStu=null;
+  room.slots.forEach(s=>s.students.forEach(stu=>{if(stu.stuId===stuId)targetStu=stu;}));
+  if(!targetStu)return;
+  targetStu.status=newStatus;IV.save();
+  render();
+  toast(`✅ ${targetStu.name} → ${newStatus==='waiting'?'等待中':newStatus==='checkedin'?'已在外等候':newStatus==='active'?'面試中':newStatus==='absent'?'缺席':'已完成'}`);
+  await IV.postStuStatus(stuId,newStatus);
 }
 
 async function changeStuStatus(stuId,roomCode,newStatus){

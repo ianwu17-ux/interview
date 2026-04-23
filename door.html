@@ -26,7 +26,7 @@
   --sh-lg:0 8px 32px rgba(18,26,21,.14);
 }
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
-html{font-size:16px;-webkit-tap-highlight-color:transparent;}
+html{font-size:18px;-webkit-tap-highlight-color:transparent;}
 body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;}
 
 /* ── TOPBAR ── */
@@ -114,6 +114,22 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink)
 .b-active{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-bd);}
 .b-done{background:var(--surface2);color:var(--ink-40);}
 
+.stu-row.stu-absent{background:#fff4f1;}
+.stu-status-txt.s-absent{color:var(--red);font-weight:700;}
+.ci-btn.absent-btn{
+  background:transparent;color:var(--red);
+  border:1.5px solid var(--red-bd);border-radius:8px;
+  padding:7px 14px;font-family:inherit;font-size:.8rem;font-weight:700;
+  cursor:pointer;white-space:nowrap;transition:all .18s;
+}
+.ci-btn.absent-btn:hover{background:var(--red-bg);}
+.ci-btn.absent-done{
+  background:var(--red-bg);color:var(--red);
+  border:1.5px solid var(--red-bd);border-radius:10px;
+  padding:10px 14px;font-family:inherit;font-size:.82rem;font-weight:700;
+  cursor:pointer;text-align:center;line-height:1.3;transition:all .18s;
+}
+.ci-btn.absent-done:hover{background:#fee2e2;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
 .empty{text-align:center;padding:2.5rem;color:var(--ink-40);font-size:.88rem;}
 
@@ -205,7 +221,7 @@ IV.ensureRoom=c=>{if(!IV.DATA[c])IV.DATA[c]={code:c,name:IV.ROOM_NAMES[c]||c,slo
 
 IV.slotStatus=s=>{
   const stus=s.students;
-  if(stus.every(x=>x.status==='done'))return'done';
+  if(stus.every(x=>x.status==='done'||x.status==='absent'))return'done';
   if(stus.some(x=>x.status==='active'))return'active';
   if(stus.some(x=>x.status==='checkedin'))return'checkedin';
   return'waiting';
@@ -338,18 +354,28 @@ function render(){
       const isC=stu.status==='checkedin';
       const isA=stu.status==='active';
       const isD=stu.status==='done';
+      const isAbs=stu.status==='absent';
 
-      const rowCls=isC?'stu-checked':isA?'stu-active':isD?'stu-done':'';
-      const statusTxt=isW?'尚未報到':isC?'✓ 已報到在外等候':isA?'面試中':'已完成';
-      const statusCls=isW?'s-waiting':isC?'s-checkedin':isA?'s-active':'s-done';
+      const rowCls=isC?'stu-checked':isA?'stu-active':isD?'stu-done':isAbs?'stu-absent':'';
+      const statusTxt=isW?'尚未報到':isC?'✓ 已報到在外等候':isA?'面試中':isAbs?'✗ 缺席':'已完成';
+      const statusCls=isW?'s-waiting':isC?'s-checkedin':isA?'s-active':isAbs?'s-absent':'s-done';
 
       let btn='';
       if(isW){
-        btn=`<button class="ci-btn" onclick="doCheckin('${stu.stuId}','${s.id}')">報到</button>`;
+        btn=`<div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">
+          <button class="ci-btn" onclick="doCheckin('${stu.stuId}')">報到</button>
+          <button class="ci-btn absent-btn" onclick="doAbsent('${stu.stuId}')">缺席</button>
+        </div>`;
       }else if(isC){
-        btn=`<button class="ci-btn done" disabled>✓ 已報到</button>`;
+        btn=`<div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">
+          <button class="ci-btn done" onclick="doUncheck('${stu.stuId}')">✓ 已報到<br><span style="font-size:.68rem;opacity:.7">點我取消</span></button>
+        </div>`;
       }else if(isA){
         btn=`<button class="ci-btn is-active-state" disabled>面試中</button>`;
+      }else if(stu.status==='absent'){
+        btn=`<div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">
+          <button class="ci-btn absent-done" onclick="doUncheck('${stu.stuId}')">✗ 缺席<br><span style="font-size:.68rem;opacity:.7">點我取消</span></button>
+        </div>`;
       }else{
         btn=`<button class="ci-btn is-done-state" disabled>已完成</button>`;
       }
@@ -375,18 +401,38 @@ function render(){
   }).join('')||'<div class="empty">本考場尚無排程</div>';
 }
 
-async function doCheckin(stuId, slotId){
-  // Find student
-  const room=IV.DATA[UI.room];if(!room)return;
-  let targetStu=null;
-  room.slots.forEach(s=>s.students.forEach(stu=>{if(stu.stuId===stuId)targetStu=stu;}));
+async function doCheckin(stuId){
+  const targetStu=findStu(stuId);
   if(!targetStu||targetStu.status!=='waiting')return;
-
   targetStu.status='checkedin';
-  IV.save();
-  render();
+  IV.save();render();
   toast(`✅ ${targetStu.name} 報到成功，請在外面等候`);
   await IV.postStuStatus(stuId,'checkedin');
+}
+
+async function doUncheck(stuId){
+  const targetStu=findStu(stuId);
+  if(!targetStu)return;
+  targetStu.status='waiting';
+  IV.save();render();
+  toast(`↩ ${targetStu.name} 已取消`);
+  await IV.postStuStatus(stuId,'waiting');
+}
+
+async function doAbsent(stuId){
+  const targetStu=findStu(stuId);
+  if(!targetStu||targetStu.status!=='waiting')return;
+  targetStu.status='absent';
+  IV.save();render();
+  toast(`✗ ${targetStu.name} 標記為缺席`);
+  await IV.postStuStatus(stuId,'absent');
+}
+
+function findStu(stuId){
+  const room=IV.DATA[UI.room];if(!room)return null;
+  let found=null;
+  room.slots.forEach(s=>s.students.forEach(stu=>{if(stu.stuId===stuId)found=stu;}));
+  return found;
 }
 
 function toast(m){const e=document.getElementById('toast');e.textContent=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),3000);}

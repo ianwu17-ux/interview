@@ -27,7 +27,7 @@
   --sh-lg:0 8px 32px rgba(26,22,18,.14);
 }
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
-html{font-size:16px;-webkit-tap-highlight-color:transparent;}
+html{font-size:18px;-webkit-tap-highlight-color:transparent;}
 body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;}
 
 /* ── TOPBAR ── */
@@ -124,7 +124,7 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink)
 }
 .judge-chip{
   background:var(--surface2);border:1px solid var(--border);
-  border-radius:5px;padding:2px 9px;font-size:.74rem;color:var(--ink-60);font-weight:500;
+  border-radius:5px;padding:4px 12px;font-size:.85rem;color:var(--ink-60);font-weight:600;
 }
 
 /* Timer bar (inside active card) */
@@ -322,7 +322,7 @@ IV.setSyncState=(state,txt)=>{
 
 IV.slotStatus=s=>{
   const stus=s.students;
-  if(stus.every(x=>x.status==='done'))return'done';
+  if(stus.every(x=>x.status==='done'||x.status==='absent'))return'done';
   if(stus.some(x=>x.status==='active'))return'active';
   if(stus.some(x=>x.status==='checkedin'))return'checkedin';
   return'waiting';
@@ -367,7 +367,7 @@ IV.fetchAll=async(cb)=>{
   }catch(e){IV.setSyncState('error',e.message);}
 };
 
-IV.startSync=cb=>{clearInterval(IV._syncT);IV.fetchAll(cb);IV._syncT=setInterval(()=>IV.fetchAll(cb),IV.SYNC_MS);};
+IV.startSync=cb=>{clearInterval(IV._syncT);IV.fetchAll(cb);IV._syncT=setInterval(()=>IV.fetchAll(()=>renderAll()),IV.SYNC_MS);};
 
 // ── UI STATE ──
 let UI = { room: null };
@@ -471,14 +471,15 @@ function renderContent(ph){
     }
 
     const judgesHtml=hero.judges.length
-      ?`<div class="sc-judges">${hero.judges.map(j=>`<span class="judge-chip">👤 ${j}</span>`).join('')}</div>`:'';
+      ?`<div class="sc-judges" style="background:var(--surface);border-bottom:1.5px solid var(--border);padding:.7rem 1rem">${hero.judges.map(j=>`<span class="judge-chip">👤 ${j}</span>`).join('')}</div>`:'';
 
     // Per-student status display
     const studentsHtml=hero.students.map(stu=>{
       const sc=stu.status==='checkedin'?'color:var(--green);font-weight:700':
                stu.status==='active'?'color:var(--blue);font-weight:700':
+               stu.status==='absent'?'color:var(--red);font-weight:700':
                stu.status==='done'?'color:var(--ink-40)':'color:var(--ink-40)';
-      const st=stu.status==='checkedin'?'✓ 已在外等候':stu.status==='active'?'面試中':stu.status==='done'?'已完成':'尚未報到';
+      const st=stu.status==='checkedin'?'✓ 已在外等候':stu.status==='active'?'面試中':stu.status==='absent'?'✗ 缺席':stu.status==='done'?'已完成':'尚未報到';
       return`<div class="student-row">
         <span class="stu-name">${stu.name}</span>
         <span class="stu-dept">${stu.dept||'—'}</span>
