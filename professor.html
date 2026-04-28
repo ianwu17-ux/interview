@@ -27,7 +27,7 @@
   --sh-lg:0 8px 32px rgba(26,22,18,.14);
 }
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
-html{font-size:18px;-webkit-tap-highlight-color:transparent;}
+html{font-size:20px;-webkit-tap-highlight-color:transparent;}
 body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;}
 
 /* ── TOPBAR ── */
@@ -124,7 +124,7 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink)
 }
 .judge-chip{
   background:var(--surface2);border:1px solid var(--border);
-  border-radius:5px;padding:4px 12px;font-size:.85rem;color:var(--ink-60);font-weight:600;
+  border-radius:5px;padding:4px 12px;font-size:1rem;color:var(--ink-60);font-weight:600;
 }
 
 /* Timer bar (inside active card) */
@@ -349,7 +349,12 @@ IV.fetchAll=async(cb)=>{
     if(!json.ok)throw new Error(json.error);
     Object.keys(json.data).forEach(code=>{
       IV.ensureRoom(code);
-      IV.DATA[code].slots=json.data[code].map(s=>{
+      const roomData=json.data[code];
+      // Support both old format (array) and new format ({displayName, slots})
+      const serverSlots=Array.isArray(roomData)?roomData:(roomData.slots||[]);
+      const displayName=Array.isArray(roomData)?null:roomData.displayName;
+      if(displayName) IV.DATA[code].name=displayName;
+      IV.DATA[code].slots=serverSlots.map(s=>{
         const localSlot=IV.DATA[code].slots.find(x=>x.id===s.id);
         return{
           ...s,

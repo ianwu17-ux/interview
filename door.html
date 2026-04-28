@@ -26,7 +26,7 @@
   --sh-lg:0 8px 32px rgba(18,26,21,.14);
 }
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
-html{font-size:18px;-webkit-tap-highlight-color:transparent;}
+html{font-size:20px;-webkit-tap-highlight-color:transparent;}
 body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;}
 
 /* ── TOPBAR ── */
@@ -262,8 +262,11 @@ IV.fetchAll=async(cb)=>{
     if(!json.ok)throw new Error(json.error);
     Object.keys(json.data).forEach(code=>{
       IV.ensureRoom(code);
-      IV.DATA[code].slots=json.data[code].map(s=>{
-        // merge local student statuses
+      const roomData=json.data[code];
+      const serverSlots=Array.isArray(roomData)?roomData:(roomData.slots||[]);
+      const displayName=Array.isArray(roomData)?null:roomData.displayName;
+      if(displayName) IV.DATA[code].name=displayName;
+      IV.DATA[code].slots=serverSlots.map(s=>{
         const localSlot=IV.DATA[code].slots.find(x=>x.id===s.id);
         return{
           ...s,

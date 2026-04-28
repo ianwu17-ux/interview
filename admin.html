@@ -27,7 +27,7 @@
   --sh-lg:0 8px 32px rgba(24,22,15,.14);
 }
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
-html{font-size:18px;-webkit-tap-highlight-color:transparent;}
+html{font-size:20px;-webkit-tap-highlight-color:transparent;}
 body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;}
 
 /* ── TOPBAR ── */
@@ -247,7 +247,11 @@ IV.fetchAll=async(cb)=>{
     if(!json.ok)throw new Error(json.error);
     Object.keys(json.data).forEach(code=>{
       IV.ensureRoom(code);
-      IV.DATA[code].slots=json.data[code].map(s=>{
+      const roomData=json.data[code];
+      const serverSlots=Array.isArray(roomData)?roomData:(roomData.slots||[]);
+      const displayName=Array.isArray(roomData)?null:roomData.displayName;
+      if(displayName) IV.DATA[code].name=displayName;
+      IV.DATA[code].slots=serverSlots.map(s=>{
         const localSlot=IV.DATA[code].slots.find(x=>x.id===s.id);
         return{...s,time:IV.cleanTime(s.time),students:s.students.map(stu=>{
           const localStu=localSlot?.students?.find(x=>x.stuId===stu.stuId);
@@ -371,18 +375,28 @@ function renderSchedule(){
 }
 
 async function applyStatus(stuId,roomCode){
+  // Read the select value BEFORE render() destroys and recreates the DOM
   const selId='sel-'+stuId.replace(/[^a-z0-9]/gi,'_');
   const sel=document.getElementById(selId);
-  if(!sel)return;
+  if(!sel){toast('❌ 找不到選單');return;}
   const newStatus=sel.value;
+
   const room=IV.DATA[roomCode];if(!room)return;
   let targetStu=null;
   room.slots.forEach(s=>s.students.forEach(stu=>{if(stu.stuId===stuId)targetStu=stu;}));
   if(!targetStu)return;
-  targetStu.status=newStatus;IV.save();
+
+  // Update state first
+  targetStu.status=newStatus;
+  IV.save();
+
+  // Post to server (don't await, fire-and-forget so render isn't blocked)
+  IV.postStuStatus(stuId,newStatus);
+
+  // Now re-render
   render();
-  toast(`✅ ${targetStu.name} → ${newStatus==='waiting'?'等待中':newStatus==='checkedin'?'已在外等候':newStatus==='active'?'面試中':newStatus==='absent'?'缺席':'已完成'}`);
-  await IV.postStuStatus(stuId,newStatus);
+  const label={waiting:'等待中',checkedin:'已在外等候',active:'面試中',absent:'缺席',done:'已完成'};
+  toast(`✅ ${targetStu.name} → ${label[newStatus]||newStatus}`);
 }
 
 async function changeStuStatus(stuId,roomCode,newStatus){
