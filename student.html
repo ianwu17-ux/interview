@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>模擬面試通知查詢</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f7f7f5;--surface:#fff;--border:#e5e5e2;--border2:#d0d0cc;
+  --ink:#1a1a18;--ink-50:#8a8a84;--ink-30:#b8b8b2;
+  --accent:#2563eb;--accent-bg:#eff6ff;--accent-bd:#bfdbfe;
+  --green:#16a34a;--green-bg:#f0fdf4;--green-bd:#bbf7d0;
+  --red:#dc2626;--r:14px;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html{font-size:20px;}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;}
+
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:1.4rem 1.2rem;text-align:center;}
+.hd-label{font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-30);font-weight:600;margin-bottom:.3rem;}
+.hd-title{font-size:1.05rem;font-weight:900;}
+
+.main{max-width:500px;margin:0 auto;padding:1.4rem 1rem;}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.5rem;margin-bottom:1rem;}
+.card-title{font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-50);margin-bottom:1.1rem;}
+
+.field{margin-bottom:.85rem;}
+.field label{display:block;font-size:.7rem;font-weight:700;color:var(--ink-50);margin-bottom:.35rem;letter-spacing:.05em;}
+.fi{width:100%;background:var(--bg);border:1.5px solid var(--border2);border-radius:9px;padding:13px 14px;font-family:'Noto Sans TC',sans-serif;font-size:1rem;color:var(--ink);outline:none;transition:all .18s;-webkit-appearance:none;}
+.fi:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px var(--accent-bg);}
+.fi::placeholder{color:var(--ink-30);}
+
+.search-btn{width:100%;padding:14px;border-radius:10px;border:none;background:var(--ink);color:#fff;font-family:'Noto Sans TC',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;transition:all .18s;margin-top:.2rem;letter-spacing:.04em;}
+.search-btn:hover{background:#333;}
+.search-btn:active{transform:scale(.98);}
+.search-btn:disabled{background:var(--ink-30);cursor:default;}
+
+.err-box{background:#fff5f5;border:1px solid #fecaca;border-radius:9px;padding:.85rem 1rem;font-size:.85rem;color:var(--red);margin-top:.8rem;display:none;line-height:1.5;}
+
+.loading-wrap{text-align:center;padding:2rem;display:none;}
+.spinner{width:30px;height:30px;border:2.5px solid var(--border);border-top-color:var(--ink);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto .9rem;}
+.loading-txt{font-size:.85rem;color:var(--ink-50);}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+#notice-wrap{display:none;}
+
+.action-row{display:flex;gap:.6rem;margin-bottom:1rem;}
+.act-btn{flex:1;padding:11px 8px;border-radius:9px;font-family:'Noto Sans TC',sans-serif;font-size:.82rem;font-weight:700;cursor:pointer;transition:all .18s;display:flex;align-items:center;justify-content:center;gap:5px;border:1.5px solid;}
+.act-dl{background:var(--surface);color:var(--ink);border-color:var(--border2);}
+.act-dl:hover{background:var(--bg);}
+.act-rm{background:var(--accent-bg);color:var(--accent);border-color:var(--accent-bd);}
+.act-rm:hover{background:#dbeafe;}
+.act-rm.set{background:var(--green-bg);color:var(--green);border-color:var(--green-bd);}
+
+.notice-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+
+.nc-top{border-bottom:1px solid var(--border);padding:1.3rem 1.4rem;}
+.nc-tag{display:inline-block;background:var(--ink);color:#fff;font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 10px;border-radius:4px;margin-bottom:.7rem;}
+.nc-name{font-size:1.6rem;font-weight:900;line-height:1.2;margin-bottom:.2rem;}
+.nc-id{font-family:'DM Mono',monospace;font-size:.75rem;color:var(--ink-50);}
+
+.info-rows{padding:1rem 1.4rem;border-bottom:1px solid var(--border);}
+.info-row{display:grid;grid-template-columns:5rem 1fr;gap:.5rem;padding:.6rem 0;border-bottom:1px solid var(--border);align-items:start;}
+.info-row:last-child{border-bottom:none;}
+.ir-lbl{font-size:.68rem;font-weight:700;color:var(--ink-50);padding-top:.2rem;letter-spacing:.04em;}
+.ir-val{font-size:.95rem;font-weight:600;line-height:1.5;}
+.ir-val.big{font-family:'DM Mono',monospace;font-size:1.3rem;font-weight:500;color:var(--accent);}
+.judge-chip{display:inline-block;background:var(--bg);border:1px solid var(--border2);border-radius:5px;padding:3px 10px;font-size:.78rem;font-weight:600;margin:2px 3px 2px 0;}
+
+.remind-sec{padding:1rem 1.4rem;border-bottom:1px solid var(--border);}
+.rs-title{font-size:.68rem;font-weight:700;color:var(--ink-50);letter-spacing:.04em;margin-bottom:.7rem;}
+.rs-list{display:flex;flex-direction:column;gap:.5rem;}
+.rs-item{display:flex;align-items:flex-start;gap:.6rem;font-size:.82rem;color:var(--ink);line-height:1.6;}
+.rs-num{width:1.3rem;height:1.3rem;background:var(--bg);border:1px solid var(--border2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:700;color:var(--ink-50);flex-shrink:0;margin-top:.15rem;}
+
+.nc-foot{padding:.85rem 1.4rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;}
+.nc-foot-date{font-size:.7rem;color:var(--ink-50);}
+.nc-status{font-size:.72rem;font-weight:700;padding:3px 10px;border-radius:20px;}
+.nc-status.waiting{background:var(--bg);color:var(--ink-50);border:1px solid var(--border2);}
+.nc-status.checkedin{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);}
+
+.remind-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.3rem 1.4rem;margin-bottom:1rem;display:none;}
+.rp-title{font-size:.75rem;font-weight:700;color:var(--ink-50);letter-spacing:.04em;margin-bottom:.9rem;}
+.rp-opts{display:flex;flex-direction:column;gap:.45rem;margin-bottom:1rem;}
+.rp-opt{display:flex;align-items:center;gap:.8rem;background:var(--bg);border:1.5px solid var(--border);border-radius:9px;padding:.75rem 1rem;cursor:pointer;transition:all .18s;}
+.rp-opt:has(input:checked){background:var(--accent-bg);border-color:var(--accent-bd);}
+.rp-opt input[type=radio]{accent-color:var(--accent);width:17px;height:17px;flex-shrink:0;}
+.rp-opt-txt{font-size:.9rem;font-weight:600;}
+.rp-opt-sub{font-size:.7rem;color:var(--ink-50);margin-top:1px;}
+.rp-set-btn{width:100%;padding:12px;border-radius:9px;border:none;background:var(--accent);color:#fff;font-family:'Noto Sans TC',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;transition:background .18s;}
+.rp-set-btn:hover{background:#1d4ed8;}
+
+#toast{position:fixed;bottom:1.4rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;padding:10px 22px;border-radius:10px;font-size:.85rem;font-weight:600;z-index:999;transition:transform .3s;pointer-events:none;white-space:nowrap;}
+#toast.show{transform:translateX(-50%) translateY(0);}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.fade-up{animation:fadeUp .3s ease both;}
+</style>
+</head>
+<body>
+<header>
+  <div class="hd-label">Mock Interview System</div>
+  <div class="hd-title">模擬面試通知查詢</div>
+</header>
+<div class="main">
+  <div class="card">
+    <div class="card-title">輸入個人資料查詢</div>
+    <div class="field">
+      <label>姓名</label>
+      <input class="fi" id="inp-name" type="text" placeholder="王小明" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>學號</label>
+      <input class="fi" id="inp-id" type="text" placeholder="S11234567" autocomplete="off" inputmode="text">
+    </div>
+    <button class="search-btn" id="search-btn" onclick="doSearch()">查詢面試通知</button>
+    <div class="err-box" id="err-msg"></div>
+  </div>
+  <div class="loading-wrap" id="loading-wrap">
+    <div class="spinner"></div>
+    <div class="loading-txt">查詢中，請稍候…</div>
+  </div>
+  <div id="notice-wrap">
+    <div class="action-row">
+      <button class="act-btn act-dl" onclick="downloadCard()">⬇ 下載通知單</button>
+      <button class="act-btn act-rm" id="remind-btn" onclick="toggleReminderPanel()">🔔 設定提醒</button>
+    </div>
+    <div class="remind-panel" id="reminder-panel">
+      <div class="rp-title">選擇提醒時間</div>
+      <div class="rp-opts" id="rp-options"></div>
+      <button class="rp-set-btn" onclick="setReminder()">確認設定提醒</button>
+    </div>
+    <div class="notice-card fade-up" id="notice-card">
+      <div class="nc-top">
+        <div class="nc-tag" id="nc-school">—</div>
+        <div class="nc-name" id="nc-name">—</div>
+        <div class="nc-id" id="nc-id">—</div>
+      </div>
+      <div class="info-rows">
+        <div class="info-row"><span class="ir-lbl">面試時間</span><span class="ir-val big" id="nc-time">—</span></div>
+        <div class="info-row"><span class="ir-lbl">面試考場</span><span class="ir-val" id="nc-room">—</span></div>
+        <div class="info-row"><span class="ir-lbl">面試委員</span><div class="ir-val" id="nc-judges">—</div></div>
+      </div>
+      <div class="remind-sec">
+        <div class="rs-title">注意事項</div>
+        <div class="rs-list" id="nc-reminders"></div>
+      </div>
+      <div class="nc-foot">
+        <span class="nc-foot-date" id="nc-date">—</span>
+        <span class="nc-status waiting" id="nc-status">等待報到</span>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+const GAS_URL='https://script.google.com/macros/s/AKfycby1Zkx3RxSgLJY7BO39HwYkKoyfZ0vdDk4kIZlWgpoNYw_ajrOBDMHDw1Ogbbbon1-w/exec';
+const SCHOOL_NAME='新北市立鶯歌工商';
+const EVENT_NAME='114-2高三四技二專甄選入學暨技優甄審模擬面試';
+const INTERVIEW_DATE='2026 年 5 月 28 日';
+const REMINDERS=['請根據面試時間，提前10分鐘至「面試地點」報到。','本次採團體面試，包含實際提問，以及面試後的提點和回饋，總長50分鐘。','當天可攜帶相關書面資料或作品前來，結束時才會依簽到表協助辦理公假。','若有任何疑問或其他需要協助的部分，請親至輔導室找伍老師！'];
+
+let allData=null,foundSlot=null,foundRoom=null;
+
+async function loadData(){const res=await fetch(GAS_URL+'?action=data&t='+Date.now());const json=await res.json();if(!json.ok)throw new Error(json.error);return json.data;}
+
+async function doSearch(){
+  const name=document.getElementById('inp-name').value.trim();
+  const sid=document.getElementById('inp-id').value.trim();
+  document.getElementById('err-msg').style.display='none';
+  if(!name||!sid){showErr('請輸入姓名和學號');return;}
+  const btn=document.getElementById('search-btn');
+  btn.disabled=true;btn.textContent='查詢中…';
+  document.getElementById('loading-wrap').style.display='block';
+  document.getElementById('notice-wrap').style.display='none';
+  try{
+    if(!allData)allData=await loadData();
+    const result=findStudent(name,sid,allData);
+    if(!result){showErr('查無資料，請確認姓名與學號是否正確');}
+    else{foundSlot=result.slot;foundRoom=result.room;renderNotice(name,sid,result);}
+  }catch(e){showErr('連線失敗，請稍後再試');}
+  btn.disabled=false;btn.textContent='查詢面試通知';
+  document.getElementById('loading-wrap').style.display='none';
+}
+
+function findStudent(name,sid,data){
+  for(const[roomCode,roomData]of Object.entries(data)){
+    const slots=Array.isArray(roomData)?roomData:(roomData.slots||[]);
+    const displayName=Array.isArray(roomData)?roomCode:(roomData.displayName||roomCode);
+    for(const slot of slots){
+      const match=slot.students.find(s=>s.name.trim()===name.trim()&&(s.studentId||'').trim()===sid.trim());
+      if(match)return{slot,stu:match,room:{code:roomCode,name:displayName}};
+    }
+  }
+  return null;
+}
+
+function renderNotice(name,sid,{slot,stu,room}){
+  document.getElementById('nc-school').textContent=SCHOOL_NAME+'　'+EVENT_NAME;
+  document.getElementById('nc-name').textContent=name;
+  document.getElementById('nc-id').textContent='學號　'+sid;
+  const timeStr=cleanTime(slot.time);
+  document.getElementById('nc-time').textContent=timeStr;
+  document.getElementById('nc-room').textContent=room.name;
+  const jEl=document.getElementById('nc-judges');
+  jEl.innerHTML=slot.judges.length?slot.judges.map(j=>`<span class="judge-chip">${j}</span>`).join(''):'<span style="color:var(--ink-50)">待公告</span>';
+  document.getElementById('nc-reminders').innerHTML=REMINDERS.map((r,i)=>`<div class="rs-item"><span class="rs-num">${i+1}</span><span>${r}</span></div>`).join('');
+  document.getElementById('nc-date').textContent=INTERVIEW_DATE;
+  const sMap={waiting:'等待報到',checkedin:'✓ 已報到',active:'面試中',done:'已完成',absent:'缺席'};
+  const sCls={waiting:'waiting',checkedin:'checkedin'};
+  const stEl=document.getElementById('nc-status');
+  stEl.textContent=sMap[stu.status]||'等待報到';
+  stEl.className='nc-status '+(sCls[stu.status]||'waiting');
+  buildReminderOptions(timeStr);
+  document.getElementById('notice-wrap').style.display='block';
+}
+
+function cleanTime(t){if(!t)return'--:--';if(/^\d{2}:\d{2}$/.test(String(t).trim()))return String(t).trim();const d=new Date(t);if(!isNaN(d))return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');return String(t).trim();}
+function showErr(msg){const e=document.getElementById('err-msg');e.textContent=msg;e.style.display='block';}
+function toast(m){const e=document.getElementById('toast');e.textContent=m;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),3000);}
+
+async function downloadCard(){
+  const btn=document.querySelector('.act-dl');btn.textContent='⏳ 生成中…';btn.disabled=true;
+  try{
+    const canvas=await html2canvas(document.getElementById('notice-card'),{backgroundColor:'#ffffff',scale:2,useCORS:true,logging:false});
+    const link=document.createElement('a');
+    link.download=`面試通知_${document.getElementById('nc-name').textContent}.png`;
+    link.href=canvas.toDataURL('image/png');link.click();
+    toast('✅ 通知單已下載');
+  }catch(e){toast('❌ 下載失敗');}
+  btn.textContent='⬇ 下載通知單';btn.disabled=false;
+}
+
+function buildReminderOptions(timeStr){
+  const[h,m]=timeStr.split(':').map(Number);
+  const opts=[{label:'面試前 1 小時',min:60},{label:'面試前 30 分鐘',min:30},{label:'面試前 15 分鐘',min:15},{label:'面試前 10 分鐘',min:10}];
+  const now=new Date();
+  const iMs=new Date(now.getFullYear(),now.getMonth(),now.getDate(),h,m,0).getTime();
+  document.getElementById('rp-options').innerHTML=opts.map((o,i)=>{
+    const diff=(iMs-o.min*60000)-Date.now();
+    const disabled=diff<30000;
+    const sub=disabled?'時間已過':'約 '+formatDiff(diff)+' 後提醒';
+    return`<label class="rp-opt"><input type="radio" name="remind" value="${o.min}" ${i===1?'checked':''} ${disabled?'disabled':''}><div><div class="rp-opt-txt">${o.label}</div><div class="rp-opt-sub">${sub}</div></div></label>`;
+  }).join('');
+}
+
+function formatDiff(ms){const m=Math.floor(ms/60000);return m<60?m+' 分鐘':Math.floor(m/60)+' 小時 '+(m%60)+' 分鐘';}
+function toggleReminderPanel(){const p=document.getElementById('reminder-panel');p.style.display=p.style.display==='block'?'none':'block';}
+
+async function setReminder(){
+  if(!('Notification'in window)){toast('❌ 此瀏覽器不支援通知');return;}
+  const perm=await Notification.requestPermission();
+  if(perm!=='granted'){toast('❌ 請允許通知權限');return;}
+  const sel=document.querySelector('input[name=remind]:checked');
+  if(!sel){toast('請選擇提醒時間');return;}
+  const minBefore=parseInt(sel.value);
+  const timeStr=cleanTime(foundSlot.time);
+  const[h,m]=timeStr.split(':').map(Number);
+  const now=new Date();
+  const delay=new Date(now.getFullYear(),now.getMonth(),now.getDate(),h,m,0).getTime()-minBefore*60000-Date.now();
+  if(delay<5000){toast('❌ 提醒時間已過');return;}
+  const stuName=document.getElementById('nc-name').textContent;
+  const roomName=foundRoom.name;
+  setTimeout(()=>{new Notification('⏰ 面試提醒',{body:`${stuName}，面試將在 ${minBefore} 分鐘後開始！\n考場：${roomName}　時間：${timeStr}`,tag:'interview-reminder'});},delay);
+  setTimeout(()=>{
+    const ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem;';
+    ov.innerHTML=`<div style="background:#fff;border-radius:18px;padding:2rem;max-width:340px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)"><div style="font-size:2.5rem;margin-bottom:.7rem">⏰</div><div style="font-size:1.1rem;font-weight:900;margin-bottom:.5rem">面試即將開始</div><div style="font-size:.9rem;color:#666;line-height:1.8;margin-bottom:1.2rem">${stuName}，您的面試將在 ${minBefore} 分鐘後開始<br>時間：<b style="color:#1a1a18">${timeStr}</b>　考場：${roomName}</div><button onclick="this.closest('[style]').remove()" style="background:#1a1a18;color:#fff;border:none;border-radius:8px;padding:10px 28px;font-weight:700;font-size:.9rem;cursor:pointer;font-family:inherit">知道了</button></div>`;
+    document.body.appendChild(ov);
+  },delay);
+  document.getElementById('reminder-panel').style.display='none';
+  const rb=document.getElementById('remind-btn');rb.textContent='🔔 提醒已設定';rb.classList.add('set');
+  toast('✅ 將在 '+formatDiff(delay)+' 後提醒');
+}
+
+document.addEventListener('keydown',e=>{if(e.key==='Enter')doSearch();});
+</script>
+</body>
+</html>
