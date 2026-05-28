@@ -289,7 +289,7 @@ IV.nowSecs=()=>{const n=new Date();return(n.getHours()*60+n.getMinutes())*60+n.g
 IV.secsToMS=s=>{const neg=s<0;s=Math.abs(Math.round(s));return(neg?'+ ':'')+IV.p2(Math.floor(s/60))+':'+IV.p2(s%60);};
 IV.ensureRoom=c=>{if(!IV.DATA[c])IV.DATA[c]={code:c,name:IV.ROOM_NAMES[c]||c,slots:[]};};
 
-IV.badgeHtml=s=>{const m={waiting:['b-waiting','等待中'],checkedin:['b-checkedin','已在外等候'],active:['b-active','面試中'],done:['b-done','已完成']};const[c,t]=m[s]||m.waiting;return`<span class="badge ${c}">${t}</span>`;};
+IV.badgeHtml=s=>{const m={waiting:['b-waiting','未報到'],checkedin:['b-checkedin','已在外等候'],active:['b-active','面試中'],done:['b-done','已完成']};const[c,t]=m[s]||m.waiting;return`<span class="badge ${c}">${t}</span>`;};
 
 IV.computePhase=()=>{
   const ns=IV.nowSecs();
@@ -308,7 +308,7 @@ IV.autoAdvance=()=>{
   Object.values(IV.DATA).forEach(room=>room.slots.forEach(s=>{
     const start=IV.toSecs(s.time),end=start+IV.SLOT_MINS*60;
     s.students.forEach(stu=>{
-      if(ns>=start&&ns<end&&(stu.status==='waiting'||stu.status==='checkedin')){stu.status='active';IV.save();}
+      if(ns>=start&&ns<end&&stu.status==='checkedin'){stu.status='active';IV.save();}
       if(ns>=end&&stu.status==='active'){stu.status='done';IV.save();}
     });
   }));
@@ -511,7 +511,7 @@ function renderContent(ph){
     heroHtml=`<div class="empty" style="padding:2rem;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);margin-bottom:1.1rem">⏳ ${next?`等待 ${next.group}（${next.time}）開始`:'尚無排程'}</div>`;
   }
 
-  function badgeHtml(s){const m={waiting:['b-waiting','等待中'],checkedin:['b-checkedin','已在外等候'],active:['b-active','面試中'],done:['b-done','已完成']};const[c,t]=m[s]||m.waiting;return`<span class="badge ${c}">${t}</span>`;}
+  function badgeHtml(s){const m={waiting:['b-waiting','未報到'],checkedin:['b-checkedin','已在外等候'],active:['b-active','面試中'],done:['b-done','已完成']};const[c,t]=m[s]||m.waiting;return`<span class="badge ${c}">${t}</span>`;}
 
   // Upcoming: compact rows
   let upcomingHtml='';

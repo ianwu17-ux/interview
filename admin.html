@@ -231,10 +231,10 @@ IV.p2=n=>String(n).padStart(2,'0');
 IV.toSecs=t=>{const[h,m]=t.split(':').map(Number);return(h*60+m)*60;};
 IV.nowSecs=()=>{const n=new Date();return(n.getHours()*60+n.getMinutes())*60+n.getSeconds();};
 IV.ensureRoom=c=>{if(!IV.DATA[c])IV.DATA[c]={code:c,name:IV.ROOM_NAMES[c]||c,slots:[]};};
-IV.badgeHtml=s=>{const m={waiting:['b-waiting','等待中'],checkedin:['b-checkedin','已在外等候'],active:['b-active','面試中'],done:['b-done','已完成']};const[c,t]=m[s]||m.waiting;return`<span class="badge ${c}">${t}</span>`;};
+IV.badgeHtml=s=>{const m={waiting:['b-waiting','未報到'],checkedin:['b-checkedin','已在外等候'],active:['b-active','面試中'],done:['b-done','已完成']};const[c,t]=m[s]||m.waiting;return`<span class="badge ${c}">${t}</span>`;};
 IV.slotStatus=s=>{const stus=s.students;if(stus.every(x=>x.status==='done'))return'done';if(stus.some(x=>x.status==='active'))return'active';if(stus.some(x=>x.status==='checkedin'))return'checkedin';return'waiting';};
 IV.setSyncState=(state,txt)=>{const d=document.getElementById('sync-dot');d.className='sync-dot'+(state==='syncing'?' syncing':state==='error'?' error':'');document.getElementById('sync-txt').textContent=txt||'--';if(document.getElementById('a-sync'))document.getElementById('a-sync').textContent=txt||'--';};
-IV.autoAdvance=()=>{const ns=IV.nowSecs();Object.values(IV.DATA).forEach(room=>room.slots.forEach(s=>{const start=IV.toSecs(s.time),end=start+IV.SLOT_MINS*60;s.students.forEach(stu=>{if(ns>=start&&ns<end&&(stu.status==='waiting'||stu.status==='checkedin')){stu.status='active';IV.save();}if(ns>=end&&stu.status==='active'){stu.status='done';IV.save();}});}));};
+IV.autoAdvance=()=>{const ns=IV.nowSecs();Object.values(IV.DATA).forEach(room=>room.slots.forEach(s=>{const start=IV.toSecs(s.time),end=start+IV.SLOT_MINS*60;s.students.forEach(stu=>{if(ns>=start&&ns<end&&stu.status==='checkedin'){stu.status='active';IV.save();}if(ns>=end&&stu.status==='active'){stu.status='done';IV.save();}});}));};
 IV.cleanTime=t=>{if(!t)return'';if(/^\d{2}:\d{2}$/.test(String(t).trim()))return String(t).trim();const d=new Date(t);if(!isNaN(d))return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');return String(t).trim();};
 
 IV.fetchAll=async(cb)=>{
@@ -357,16 +357,13 @@ function renderSchedule(){
         </td>
         <td>${IV.badgeHtml(stu.status)}</td>
         <td>
-          <div style="display:flex;gap:5px;align-items:center">
-            <select class="status-sel" id="sel-${stu.stuId.replace(/[^a-z0-9]/gi,'_')}">
-              <option value="waiting"   ${stu.status==='waiting'   ?'selected':''}>等待中</option>
-              <option value="checkedin" ${stu.status==='checkedin' ?'selected':''}>已在外等候</option>
-              <option value="active"    ${stu.status==='active'    ?'selected':''}>面試中</option>
-              <option value="absent"    ${stu.status==='absent'    ?'selected':''}>缺席</option>
-              <option value="done"      ${stu.status==='done'      ?'selected':''}>已完成</option>
-            </select>
-            <button class="btn btn-blue btn-sm" onclick="applyStatus('${stu.stuId}','${UI.room}')">套用</button>
-          </div>
+          <select class="status-sel" onchange="directChange('${stu.stuId}','${UI.room}',this.value)">
+            <option value="waiting"   ${stu.status==='waiting'   ?'selected':''}>未報到</option>
+            <option value="checkedin" ${stu.status==='checkedin' ?'selected':''}>已在外等候</option>
+            <option value="active"    ${stu.status==='active'    ?'selected':''}>面試中</option>
+            <option value="absent"    ${stu.status==='absent'    ?'selected':''}>缺席</option>
+            <option value="done"      ${stu.status==='done'      ?'selected':''}>已完成</option>
+          </select>
         </td>
       </tr>`);
     });
@@ -374,39 +371,29 @@ function renderSchedule(){
   tbody.innerHTML=rows.join('');
 }
 
+async function directChange(stuId,roomCode,newStatus){
+  const room=IV.DATA[roomCode];if(!room)return;
+  let targetStu=null;
+  room.slots.forEach(s=>s.students.forEach(stu=>{if(stu.stuId===stuId)targetStu=stu;}));
+  if(!targetStu)return;
+  targetStu.status=newStatus;
+  IV.save();
+  // Update row background without full re-render
+  const label={waiting:'未報到',checkedin:'已在外等候',active:'面試中',absent:'缺席',done:'已完成'};
+  toast(`✅ ${targetStu.name} → ${label[newStatus]||newStatus}`);
+  renderStats();
+  IV.postStuStatus(stuId,newStatus);
+}
+
 async function applyStatus(stuId,roomCode){
-  // Read the select value BEFORE render() destroys and recreates the DOM
   const selId='sel-'+stuId.replace(/[^a-z0-9]/gi,'_');
   const sel=document.getElementById(selId);
   if(!sel){toast('❌ 找不到選單');return;}
-  const newStatus=sel.value;
-
-  const room=IV.DATA[roomCode];if(!room)return;
-  let targetStu=null;
-  room.slots.forEach(s=>s.students.forEach(stu=>{if(stu.stuId===stuId)targetStu=stu;}));
-  if(!targetStu)return;
-
-  // Update state first
-  targetStu.status=newStatus;
-  IV.save();
-
-  // Post to server (don't await, fire-and-forget so render isn't blocked)
-  IV.postStuStatus(stuId,newStatus);
-
-  // Now re-render
-  render();
-  const label={waiting:'等待中',checkedin:'已在外等候',active:'面試中',absent:'缺席',done:'已完成'};
-  toast(`✅ ${targetStu.name} → ${label[newStatus]||newStatus}`);
+  await directChange(stuId,roomCode,sel.value);
 }
 
 async function changeStuStatus(stuId,roomCode,newStatus){
-  const room=IV.DATA[roomCode];if(!room)return;
-  let targetStu=null;
-  room.slots.forEach(s=>s.students.forEach(stu=>{if(stu.stuId===stuId)targetStu=stu;}));
-  if(!targetStu)return;
-  targetStu.status=newStatus;IV.save();
-  render();
-  await IV.postStuStatus(stuId,newStatus);
+  await directChange(stuId,roomCode,newStatus);
 }
 
 function resetRoom(){

@@ -238,7 +238,9 @@ IV.autoAdvance=()=>{
   Object.values(IV.DATA).forEach(room=>room.slots.forEach(s=>{
     const start=IV.toSecs(s.time),end=start+IV.SLOT_MINS*60;
     s.students.forEach(stu=>{
-      if(ns>=start&&ns<end&&(stu.status==='waiting'||stu.status==='checkedin')){stu.status='active';IV.save();}
+      // 只有已報到的人才會自動進入面試中
+      if(ns>=start&&ns<end&&stu.status==='checkedin'){stu.status='active';IV.save();}
+      // 面試結束只把面試中的人改為已完成，未報到的維持原狀
       if(ns>=end&&stu.status==='active'){stu.status='done';IV.save();}
     });
   }));
